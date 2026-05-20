@@ -1,0 +1,89 @@
+name: CI/CD Innovatech Deployment
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  # ETAPA 1: Compilar y subir imágenes a AWS ECR
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: us-east-1
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build and Push Backend Ventas
+      run: |
+        docker build -t 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-ventas:latest ./back-Ventas_SpringBoot/Springboot-API-REST
+        docker push 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-ventas:latest
+
+    - name: Build and Push Backend Despachos
+      run: |
+        docker build -t 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-despachos:latest ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+        docker push 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-despachos:latest
+
+    - name: Build and Push Frontend
+      run: |
+        docker build -t 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-frontend:latest ./front_despacho
+        docker push 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-frontend:latest
+
+  # ETAPA 2: Despliegue en las instancias EC2 mediante SSH Proxy (Bastión)
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+    - name: Deploy to EC2 Datos (MySQL Privada)
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_DATOS_IP }}
+        username: ec2-user
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        proxy_host: ${{ secrets.EC2_WEB_IP }}
+        proxy_username: ec2-user
+        proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          sudo docker stop mysql-db || true
+          sudo docker rm mysql-db || true
+          sudo docker run -d --name mysql-db -p 3306:3306 -e MYSQL_ROOT_PASSWORD=admin123 -e MYSQL_DATABASE=innovatech_db mysql:8
+
+    - name: Deploy to EC2 App (Backends Privada)
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_APP_IP }}
+        username: ec2-user
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        proxy_host: ${{ secrets.EC2_WEB_IP }}
+        proxy_username: ec2-user
+        proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin 779655339914.dkr.ecr.us-east-1.amazonaws.com
+          sudo docker stop api-ventas api-despachos || true
+          sudo docker rm api-ventas api-despachos || true
+          
+          sudo docker run -d --name api-ventas -p 8080:8080 -e DB_ENDPOINT=${{ secrets.EC2_DATOS_IP }} -e DB_PORT=3306 -e DB_NAME=innovatech_db -e DB_USERNAME=root -e DB_PASSWORD=admin123 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-ventas:latest
+          
+          sudo docker run -d --name api-despachos -p 8081:8081 -e DB_ENDPOINT=${{ secrets.EC2_DATOS_IP }} -e DB_PORT=3306 -e DB_NAME=innovatech_db -e DB_USERNAME=root -e DB_PASSWORD=admin123 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-despachos:latest
+
+    - name: Deploy to EC2 Web (Frontend Pública Directa)
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_WEB_IP }}
+        username: ec2-user
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin 779655339914.dkr.ecr.us-east-1.amazonaws.com
+          sudo docker stop web-frontend || true
+          sudo docker rm web-frontend || true
+          sudo docker run -d --name web-frontend -p 80:80 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-frontend:latest
