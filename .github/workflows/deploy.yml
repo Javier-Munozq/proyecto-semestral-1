@@ -69,6 +69,8 @@ jobs:
         proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin 779655339914.dkr.ecr.us-east-1.amazonaws.com
+          sudo docker pull 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-ventas:latest
+          sudo docker pull 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-despachos:latest
           sudo docker stop api-ventas api-despachos || true
           sudo docker rm api-ventas api-despachos || true
           
@@ -84,6 +86,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin 779655339914.dkr.ecr.us-east-1.amazonaws.com
+          sudo docker pull 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-frontend:latest
           sudo docker stop web-frontend || true
           sudo docker rm web-frontend || true
           sudo docker run -d --name web-frontend -p 80:80 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-frontend:latest
