@@ -56,7 +56,8 @@ jobs:
         script: |
           sudo docker stop mysql-db || true
           sudo docker rm mysql-db || true
-          sudo docker run -d --name mysql-db -p 3306:3306 -e MYSQL_ROOT_PASSWORD=admin123 -e MYSQL_DATABASE=innovatech_db mysql:8
+          sudo docker volume create mysql_data || true
+          sudo docker run -d --name mysql-db -p 3306:3306 -v mysql_data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=admin123 -e MYSQL_DATABASE=innovatech_db mysql:8
 
     - name: Deploy to EC2 App (Backends Privada)
       uses: appleboy/ssh-action@master
@@ -73,9 +74,9 @@ jobs:
           sudo docker pull 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-despachos:latest
           sudo docker stop api-ventas api-despachos || true
           sudo docker rm api-ventas api-despachos || true
-          
+
           sudo docker run -d --name api-ventas -p 8080:8080 -e DB_ENDPOINT=${{ secrets.EC2_DATOS_IP }} -e DB_PORT=3306 -e DB_NAME=innovatech_db -e DB_USERNAME=root -e DB_PASSWORD=admin123 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-ventas:latest
-          
+
           sudo docker run -d --name api-despachos -p 8081:8081 -e DB_ENDPOINT=${{ secrets.EC2_DATOS_IP }} -e DB_PORT=3306 -e DB_NAME=innovatech_db -e DB_USERNAME=root -e DB_PASSWORD=admin123 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-despachos:latest
 
     - name: Deploy to EC2 Web (Frontend Pública Directa)
