@@ -1,17 +1,32 @@
-# ETAPA 1: Construcción (Multi-stage build)
+# ETAPA 1: Compilación (Maven + JDK)
 FROM maven:3.9-eclipse-temurin-17 AS builder
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src
-RUN mvn clean package -DskipTests
+RUN mvn clean package -DskipTests -q
 
-# ETAPA 2: Ejecución
+# ETAPA 2: Ejecución (Imagen ligera)
 FROM eclipse-temurin:17-jre-alpine
+
+# Variables
+ENV APP_USER=appuser
+ENV APP_GROUP=appgroup
+
+# Crear usuario no-root
+RUN addgroup -S ${APP_GROUP} && \
+    adduser -S ${APP_USER} -G ${APP_GROUP}
+
+# Directorio de trabajo
 WORKDIR /app
-# Usuario no root por seguridad
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser:appgroup
-# Copiamos el .jar compilado
-COPY --from=builder /app/target/*.jar app.jar
+
+# Copiar JAR desde builder (sin permisos elevados)
+COPY --from=builder --chown=${APP_USER}:${APP_GROUP} /app/target/*.jar app.jar
+
+# Cambiar a usuario no-root
+USER ${APP_USER}:${APP_GROUP}
+
+# Exponer puerto
 EXPOSE 8081
+
+# Comando de ejecución
 ENTRYPOINT ["java", "-jar", "app.jar"]

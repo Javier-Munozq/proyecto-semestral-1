@@ -11,6 +11,12 @@ services:
       - "3306:3306"
     volumes:
       - dbdata:/var/lib/mysql
+    networks:
+      - innovatech-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
 
   backend-ventas:
     build:
@@ -25,7 +31,10 @@ services:
       - DB_USERNAME=root
       - DB_PASSWORD=admin123
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    networks:
+      - innovatech-network
 
   backend-despachos:
     build:
@@ -40,7 +49,10 @@ services:
       - DB_USERNAME=root
       - DB_PASSWORD=admin123
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    networks:
+      - innovatech-network
 
   frontend:
     build:
@@ -51,6 +63,13 @@ services:
     depends_on:
       - backend-ventas
       - backend-despachos
+    networks:
+      - innovatech-network
 
 volumes:
   dbdata:
+    driver: local
+
+networks:
+  innovatech-network:
+    driver: bridge
