@@ -25,6 +25,9 @@ services:
     ports:
       - "8080:8080"
     environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/innovatech_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=admin123
       - DB_ENDPOINT=db
       - DB_PORT=3306
       - DB_NAME=innovatech_db
@@ -43,6 +46,9 @@ services:
     ports:
       - "8081:8081"
     environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/innovatech_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=admin123
       - DB_ENDPOINT=db
       - DB_PORT=3306
       - DB_NAME=innovatech_db
