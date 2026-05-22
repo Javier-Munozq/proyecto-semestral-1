@@ -6,8 +6,8 @@ import axios from "axios";
 export const TableCompras = () => {
   const [ventas, setVentas] = useState([]);
 
-  const compras = async () => {
-    await axios.get(import.meta.env.VITE_API_VENTAS, {
+    const compras = async () => {
+    await axios.get("/api/v1/ventas", {
       headers:{
         'Content-Type': 'application/json',
         'Accept': 'application/json'

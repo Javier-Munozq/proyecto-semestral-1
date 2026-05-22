@@ -23,9 +23,9 @@ export const FormDespacho = ({ venta, onClose }) => {
 
     console.log("Datos del formulario:", jsonData);
 
-    try {
+        try {
       await axios.put(
-        `${import.meta.env.VITE_API_VENTAS}/${venta.idVenta}`,
+        `/api/v1/ventas/${venta.idVenta}`,
         jsonDataSales,
         {
           headers:{
@@ -34,7 +34,7 @@ export const FormDespacho = ({ venta, onClose }) => {
       }
         }
       );
-      await axios.post(import.meta.env.VITE_API_DESPACHOS, jsonData, {
+      await axios.post("/api/v1/despachos", jsonData, {
         headers:{
           'Content-Type': 'application/json',
           'Accept': 'application/json'

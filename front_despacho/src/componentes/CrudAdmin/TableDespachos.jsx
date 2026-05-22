@@ -6,9 +6,9 @@ import { FormCierreDespacho } from "./FormCierreDespacho";
 export const TableDespachos = () => {
   const [despachos, setDespachos] = useState([]);
 
-  const despacho = async () => {
+    const despacho = async () => {
     await axios
-      .get(import.meta.env.VITE_API_DESPACHOS, {
+      .get("/api/v1/despachos", {
         headers:{
               'Content-Type': 'application/json',
               'Accept': 'application/json'

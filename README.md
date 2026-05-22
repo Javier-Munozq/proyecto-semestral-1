@@ -1,194 +1,214 @@
-# 🚚 Innovatech Chile - Plataforma de Gestión de Ventas y Despachos
+🚀 Innovatech Chile
 
-Solución integral de microservicios para la gestión de órdenes de compra, ventas y despachos en tiempo real.
-
----
-
-## 📋 Tabla de Contenidos
-
-- [Descripción del Proyecto](#descripción-del-proyecto)
-- [Arquitectura de Microservicios](#arquitectura-de-microservicios)
-- [Requisitos Previos](#requisitos-previos)
-- [Instalación y Levantamiento Local](#instalación-y-levantamiento-local)
-- [Estructura del Proyecto](#estructura-del-proyecto)
-- [Documentación de APIs](#documentación-de-apis)
-- [Estándares de Commits](#estándares-de-commits)
-- [Contribución](#contribución)
+Innovatech Chile es una plataforma de microservicios para gestionar ventas, generar despachos y exponer un frontend React completo con proxy inverso Nginx y despliegue automatizado con GitHub Actions + AWS EC2.
 
 ---
 
-## 🎯 Descripción del Proyecto
+## 📌 Arquitectura del Proyecto
 
-**Innovatech Chile** es una plataforma cloud-native que facilita la gestión completa del ciclo de vida de ventas y despachos. El sistema permite:
+- front_despacho
+  - Frontend React + Vite
+  - Empaquetado y servido por Nginx
+  - Proxy inverso hacia los APIs
 
-- ✅ Registro y seguimiento de órdenes de compra
-- ✅ Generación automática de órdenes de despacho
-- ✅ Cierre y confirmación de entregas
-- ✅ Integración con base de datos centralizada
-- ✅ API REST escalable y documentada con OpenAPI (Swagger)
+- Springboot-API-REST
+  - API REST de Ventas
+  - Expone `/api/v1/ventas`
 
----
+- Springboot-API-REST-DESPACHO
+  - API REST de Despachos
+  - Expone `/api/v1/despachos`
 
-## 🏗️ Arquitectura de Microservicios
-┌─────────────────────────────────────────────────────────────┐
-│ FRONTEND (React + Vite) │
-│ :80 (Nginx - Público) │
-└────────────────────────┬────────────────────────────────────┘
-│
-┌───────────────┴───────────────┐
-│ │
-▼ ▼
-┌──────────────────────┐ ┌──────────────────────┐
-│ API Ventas (8080) │ │ API Despachos (8081) │
-│ Spring Boot Java 17 │ │ Spring Boot Java 17 │
-└──────────┬───────────┘ └──────────┬───────────┘
-│ │
-└───────────────┬───────────────┘
-│
-▼
-┌──────────────────────────┐
-│ MySQL 8 (3306) │
-│ innovatech_db │
-│ (Persistencia datos) │
-└──────────────────────────┘
-
-**Componentes:**
-- **Frontend**: React + Vite compilado con Nginx
-- **Backend Ventas**: API REST para gestión de órdenes de compra
-- **Backend Despachos**: API REST para gestión de órdenes de despacho
-- **Base de Datos**: MySQL 8 centralizada
+- Base de datos MySQL
+  - Persistencia de datos en volumen Docker
+  - Configurada para producción y despliegue local
 
 ---
 
-## 📦 Requisitos Previos
+## 🧱 Flujo de Arquitectura
 
-- **Docker Desktop** (v20.10+)
-- **Docker Compose** (v1.29+)
-- **Git**
-- **8 GB RAM mínimo** para la máquina local
-- **Puertos disponibles**: 80, 8080, 8081, 3306
+1. El usuario accede al Frontend en `http://<web-host>`.
+2. Nginx sirve los archivos estáticos React.
+3. Las llamadas a `/api/v1/ventas` se proxyean a `api-ventas:8080` o a la IP del backend en AWS.
+4. Las llamadas a `/api/v1/despachos` se proxyean a `api-despachos:8081`.
+5. Ambos backends consumen MySQL como fuente de datos centralizada.
 
 ---
 
-## 🚀 Instalación y Levantamiento Local
+## 🐳 Levantar localmente con Docker Compose
 
-### Paso 1: Clonar el repositorio
+Desde la raíz del repositorio:
 
 ```bash
-git clone https://github.com/Skibidi-Mate/proyecto-semestral.git
-cd proyecto-semestral
-
-
-Paso 2: Levantar el stack completo con Docker Compose
-# Compilar imágenes y levantar contenedores
 docker-compose up --build
+```
 
-# Alternativamente, en modo background (recomendado)
+O en segundo plano:
+
+```bash
 docker-compose up -d --build
+```
 
+### Ver estado de los contenedores
 
-Paso 3: Verificar que todo está en línea
-# Ver estado de los contenedores
+```bash
 docker-compose ps
+```
 
-# Revisar logs de un servicio específico
-docker-compose logs -f db              # Base de datos
-docker-compose logs -f backend-ventas  # Backend Ventas
-docker-compose logs -f backend-despachos  # Backend Despachos
-docker-compose logs -f frontend        # Frontend
+### Revisar logs
 
+```bash
+docker-compose logs -f db
+docker-compose logs -f backend-ventas
+docker-compose logs -f backend-despachos
+docker-compose logs -f frontend
+```
 
-Paso 4: Acceder a la aplicación
-Frontend: http://localhost
-API Ventas (Swagger): http://localhost:8080/swagger-ui.html
-API Despachos (Swagger): http://localhost:8081/swagger-ui.html
+### Detener el stack
 
-
-Detener el stack
+```bash
 docker-compose down
+```
 
-# Si necesitas eliminar datos persisten también
-docker-compose down -v
+---
 
-📂 Estructura del Proyecto
+## ⚙️ Componentes de contenedores
+
+### Base de datos MySQL
+- `mysql:8`
+- Puerto `3306`
+- Volumen Docker persistente: `mysql_data`
+- Datos guardados en `/var/lib/mysql`
+
+### Backend Ventas
+- Expuesto en `8080`
+- Lee variables de entorno:
+  - `DB_ENDPOINT`
+  - `DB_PORT`
+  - `DB_NAME`
+  - `DB_USERNAME`
+  - `DB_PASSWORD`
+
+### Backend Despachos
+- Expuesto en `8081`
+- Lee las mismas variables de entorno de DB
+
+### Frontend
+- Servido en `80`
+- Usa Nginx como proxy inverso
+- Consume rutas relativas `/api/v1/...`
+
+---
+
+## 🔧 Proxy Inverso Nginx
+
+El frontend usa un `nginx.conf` que:
+- Sirve archivos estáticos desde `/usr/share/nginx/html`
+- Hace proxy a:
+  - `/api/v1/ventas` → backend de ventas
+  - `/api/v1/despachos` → backend de despachos
+
+En AWS el proxy debe apuntar a la IP privada de la capa de aplicación que aloja los backends.
+
+---
+
+## ⚙️ CI/CD con GitHub Actions
+
+El pipeline está configurado en deploy.yml y ejecuta:
+
+1. Build de las imágenes Docker
+2. Push a AWS ECR:
+   - `innovatech-backend-ventas:latest`
+   - `innovatech-backend-despachos:latest`
+   - `innovatech-frontend:latest`
+
+3. Despliegue SSH a EC2 mediante `appleboy/ssh-action`
+   - EC2 Datos (MySQL)
+   - EC2 App (Backends)
+   - EC2 Web (Frontend)
+
+### Ajustes clave del pipeline
+- Trigger en la rama `deploy`
+- Comandos `docker pull` agregados en los despliegues de backend y frontend
+- El contenedor MySQL se ejecuta con volumen Docker persistente:
+  - `-v mysql_data:/var/lib/mysql`
+
+---
+
+## ☁️ Despliegue en AWS EC2
+
+### EC2 Datos
+- Instancia privada
+- Ejecuta MySQL con volumen persistente
+
+### EC2 App
+- Instancia privada
+- Ejecuta los contenedores de backend
+- Descarga imágenes actualizadas de ECR antes de arrancar
+
+### EC2 Web
+- Instancia pública
+- Sirve Nginx + frontend
+- Redirige tráfico `/api/v1/...` a los backends privados
+
+---
+
+## 🧪 Inyección de Datos de Prueba (PowerShell)
+
+Ejecuta estos comandos en la terminal de VS Code:
+
+### 1. Crear una Venta
+
+```powershell
+Invoke-RestMethod -Uri "http://44.217.102.23/api/v1/ventas" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"direccionCompra":"Av. Siempre Viva 123","valorCompra":150000,"fechaCompra":"2026-05-21","despachoGenerado":false}'
+```
+
+### 2. Crear un Despacho
+
+```powershell
+Invoke-RestMethod -Uri "http://44.217.102.23/api/v1/despachos" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"fechaDespacho":"2026-05-22","patenteCamion":"ABC1234","intento":0,"idCompra":1,"direccionCompra":"Av. Siempre Viva 123","valorCompra":150000,"despachado":false}'
+```
+
+---
+
+## ✅ Buenas prácticas de commits
+
+Usar prefijos claros en los mensajes:
+- `cambio:`
+- `fix:`
+- `update:`
+- `refactor:`
+- `docs:`
+- `test:`
+
+Ejemplo:
+
+```bash
+git commit -m "fix: corregir proxy de Nginx para /api/v1/despachos"
+```
+
+---
+
+## 📂 Estructura recomendada del repositorio
+
+```text
 proyecto-semestral/
 ├── .github/
-│   └── workflows/
-│       └── deploy.yml                 # Pipeline CI/CD GitHub Actions
+│   └── workflows/deploy.yml
 ├── back-Ventas_SpringBoot/
 │   └── Springboot-API-REST/
-│       ├── Dockerfile                 # Dockerfile del backend ventas
-│       ├── pom.xml                    # Dependencias Maven
-│       └── src/                       # Código fuente Java
+│       └── src/
 ├── back-Despachos_SpringBoot/
 │   └── Springboot-API-REST-DESPACHO/
-│       ├── Dockerfile                 # Dockerfile del backend despachos
-│       ├── pom.xml                    # Dependencias Maven
-│       └── src/                       # Código fuente Java
+│       └── src/
 ├── front_despacho/
-│   ├── Dockerfile                     # Dockerfile frontend
-│   ├── package.json                   # Dependencias Node/npm
-│   ├── vite.config.js                 # Configuración Vite
-│   └── src/                           # Código fuente React
-├── docker-compose.yml                 # Orquestación de contenedores
-└── README.md                          # Este archivo
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   ├── package.json
+│   └── src/
+├── docker-compose.yml
+└── README.md
+```
 
-📡 Documentación de APIs
-Backend Ventas (Puerto 8080)
-Endpoints disponibles:
+---
 
-GET /api/v1/ventas — Obtener todas las ventas
-GET /api/v1/ventas/{idVenta} — Obtener venta por ID
-POST /api/v1/ventas — Crear nueva venta
-PUT /api/v1/ventas/{idVenta} — Actualizar venta
-DELETE /api/v1/ventas/{idVenta} — Eliminar venta
-Documentación interactiva: http://localhost:8080/swagger-ui.html
-
-Backend Despachos (Puerto 8081)
-Endpoints disponibles:
-
-GET /api/v1/despachos — Obtener todos los despachos
-GET /api/v1/despachos/{idDespacho} — Obtener despacho por ID
-POST /api/v1/despachos — Crear nuevo despacho
-PUT /api/v1/despachos/{idDespacho} — Actualizar despacho
-DELETE /api/v1/despachos/{idDespacho} — Eliminar despacho
-Documentación interactiva: http://localhost:8081/swagger-ui.html
-
-📝 Estándares de Commits
-Para mantener un histórico limpio y profesional, utiliza estos prefijos en tus commits:
-
-Prefijo	            Descripción	                       Ejemplo
-cambio:	Nuevas funcionalidades o cambios	      cambio: agregar filtro por estado en ventas
-fix:	Corrección de bugs	                      fix: resolver error en cálculo de total
-update:	Actualización de dependencias o documentación	update: actualizar Spring Boot a v3.4.5
-refactor: Mejora de código sin cambiar funcionalidad	refactor: simplificar lógica de validación
-docs:	Solo cambios en documentación	          docs: agregar instrucciones de deploy
-test:	Agregar o modificar tests	              test: agregar pruebas unitarias para VentaService
-
-
-Ejemplo de commit correcto:
-git commit -m "cambio: implementar cierre de despacho con validación"
-
-🤝 Contribución
-
-1-Crea una rama desde main:
-git checkout -b feature/mi-feature
-
-2-Realiza cambios y commitea con prefijos:
-git commit -m "cambio: descripción clara del cambio"
-
-3-Pushea a la rama:
-git push origin feature/mi-feature
-
-4-Abre un Pull Request en GitHub
-
-📄 Licencia
-Este proyecto es propiedad de Innovatech Chile. Uso interno únicamente.
-
-📞 Soporte
-Para preguntas o problemas:
-
-Abre un issue en GitHub
-Contacta al equipo de DevOps
-
-Última actualización: 20 de mayo de 2026
