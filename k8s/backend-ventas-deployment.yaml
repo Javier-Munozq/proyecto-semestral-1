@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-ventas-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-ventas
+  template:
+    metadata:
+      labels:
+        app: backend-ventas
+    spec:
+      containers:
+      - name: backend-ventas
+        image: 476752693395.dkr.ecr.us-east-1.amazonaws.com/tienda-backend-ventas:eks-v1
+        resources:
+          requests:
+            cpu: 100m
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:mysql://db:3306/innovatech_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "root"
+        - name: SPRING_DATASOURCE_PASSWORD
+          value: "admin123"
+        - name: DB_ENDPOINT
+          value: "db"
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_NAME
+          value: "innovatech_db"
+        - name: DB_USERNAME
+          value: "root"
+        - name: DB_PASSWORD
+          value: "admin123"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-ventas
+spec:
+  selector:
+    app: backend-ventas
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

@@ -1,93 +1,60 @@
-name: CI/CD Innovatech Deployment
+name: Build and Deploy to EKS
 
 on:
   push:
-    branches: [ "deploy" ]
+    branches:
+      - main
+      - master # Se ejecutará cuando hagas push a 'main' o 'master'
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: devOps-eks
+  AWS_ACCOUNT_ID: "476752693395"
 
 jobs:
-  # ETAPA 1: Compilar y subir imágenes a AWS ECR
-  build-and-push:
+  deploy:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Checkout Code
+    - name: Checkout del código
       uses: actions/checkout@v3
 
-    - name: Configure AWS Credentials
+    - name: Configurar credenciales de AWS
       uses: aws-actions/configure-aws-credentials@v2
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-        aws-region: us-east-1
+        aws-region: ${{ env.AWS_REGION }}
 
-    - name: Login to Amazon ECR
+    - name: Iniciar sesión en Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Build and Push Backend Ventas
+    - name: Construir y subir Backend Ventas
       run: |
-        docker build -t 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-ventas:latest ./back-Ventas_SpringBoot/Springboot-API-REST
-        docker push 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-ventas:latest
+        cd back-Ventas_SpringBoot/Springboot-API-REST
+        docker build -t tienda-backend-ventas .
+        docker tag tienda-backend-ventas:latest ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/tienda-backend-ventas:eks-v1
+        docker push ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/tienda-backend-ventas:eks-v1
 
-    - name: Build and Push Backend Despachos
+    - name: Construir y subir Backend Despachos
       run: |
-        docker build -t 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-despachos:latest ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
-        docker push 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-despachos:latest
+        cd back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+        docker build -t tienda-backend-despachos .
+        docker tag tienda-backend-despachos:latest ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/tienda-backend-despachos:eks-v1
+        docker push ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/tienda-backend-despachos:eks-v1
 
-    - name: Build and Push Frontend
+    - name: Construir y subir Frontend
       run: |
-        docker build -t 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-frontend:latest ./front_despacho
-        docker push 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-frontend:latest
+        cd front_despacho
+        docker build -t tienda-frontend .
+        docker tag tienda-frontend:latest ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/tienda-frontend:eks-v1
+        docker push ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/tienda-frontend:eks-v1
 
-  # ETAPA 2: Despliegue en las instancias EC2 mediante SSH Proxy (Bastión)
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-    - name: Deploy to EC2 Datos (MySQL Privada)
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_DATOS_IP }}
-        username: ec2-user
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        proxy_host: ${{ secrets.EC2_WEB_IP }}
-        proxy_username: ec2-user
-        proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          sudo docker stop mysql-db || true
-          sudo docker rm mysql-db || true
-          sudo docker volume create mysql_data || true
-          sudo docker run -d --name mysql-db -p 3306:3306 -v mysql_data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=admin123 -e MYSQL_DATABASE=innovatech_db mysql:8
+    - name: Configurar kubectl (kubeconfig)
+      run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
 
-    - name: Deploy to EC2 App (Backends Privada)
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_APP_IP }}
-        username: ec2-user
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        proxy_host: ${{ secrets.EC2_WEB_IP }}
-        proxy_username: ec2-user
-        proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin 779655339914.dkr.ecr.us-east-1.amazonaws.com
-          sudo docker pull 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-ventas:latest
-          sudo docker pull 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-despachos:latest
-          sudo docker stop api-ventas api-despachos || true
-          sudo docker rm api-ventas api-despachos || true
-
-          sudo docker run -d --name api-ventas -p 8080:8080 -e DB_ENDPOINT=${{ secrets.EC2_DATOS_IP }} -e DB_PORT=3306 -e DB_NAME=innovatech_db -e DB_USERNAME=root -e DB_PASSWORD=admin123 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-ventas:latest
-
-          sudo docker run -d --name api-despachos -p 8081:8081 -e DB_ENDPOINT=${{ secrets.EC2_DATOS_IP }} -e DB_PORT=3306 -e DB_NAME=innovatech_db -e DB_USERNAME=root -e DB_PASSWORD=admin123 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-backend-despachos:latest
-
-    - name: Deploy to EC2 Web (Frontend Pública Directa)
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_WEB_IP }}
-        username: ec2-user
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin 779655339914.dkr.ecr.us-east-1.amazonaws.com
-          sudo docker pull 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-frontend:latest
-          sudo docker stop web-frontend || true
-          sudo docker rm web-frontend || true
-          sudo docker run -d --name web-frontend -p 80:80 779655339914.dkr.ecr.us-east-1.amazonaws.com/innovatech-frontend:latest
+    - name: Desplegar todos los manifiestos (Deployment, Service, HPA)
+      run: |
+        kubectl apply -f k8s/namespace.yaml
+        kubectl apply -n tienda -f k8s/
