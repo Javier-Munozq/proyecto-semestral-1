@@ -59,3 +59,9 @@ jobs:
       run: |
         kubectl apply -f k8s/namespace.yaml
         kubectl apply -n tienda -f k8s/
+
+    - name: Reiniciar pods para forzar la descarga de la nueva versión
+      run: |
+        kubectl rollout restart deployment backend-ventas-deployment -n tienda
+        kubectl rollout restart deployment backend-despachos-deployment -n tienda
+        kubectl rollout restart deployment frontend-deployment -n tienda
